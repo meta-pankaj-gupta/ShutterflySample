@@ -13,14 +13,11 @@ public class Utility {
             if(Math.Mod(i, 10) == 0) {
                 key = 'Key'+i;
                 value = new List<String>();
+                batchGroup.put(key, value);
                 i=0;
             }
             i++;
             value.add(id);
-            
-            if(i == 10) {
-                batchGroup.put(key, value);
-            }
         }
         return batchGroup;
     }
