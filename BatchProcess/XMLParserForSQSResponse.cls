@@ -44,6 +44,7 @@ public class XMLParserForSQSResponse {
             }
             messages.add(msg);
         }
+        
         return messages;
     }
 }

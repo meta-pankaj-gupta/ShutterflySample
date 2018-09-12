@@ -1,10 +1,9 @@
-public class InsertAccountsIntoBatch implements Database.Batchable <SObject> {
+public class InsertAccountsIntoBatch implements Database.Batchable <SObject>, Database.AllowsCallouts, Database.Stateful {
 	public Database.QueryLocator start(Database.BatchableContext bc) {
-        return null;
+        return Database.getQueryLocator('SELECT Id FROM Account');
     }
     
     public void execute(Database.BatchableContext bc, List<Account> records) {
-        Integer noOfRequests = 5;
         String responseXML;
         List<Account> accountToBeInsert;
         List<XMLParserForSQSResponse.Message> messageList;
@@ -18,11 +17,8 @@ public class InsertAccountsIntoBatch implements Database.Batchable <SObject> {
         Utility utils = new Utility();
         SQSDeleteBatch sqsDeletebatch = new SQSDeleteBatch();
         
-        for(Integer i=1; i<=noOfRequests; i++) {
-            awsQueue.requestSendToAWS();
-            responseXML = awsQueue.getResponseFromAWS();
-            messageList.addAll(awsQueue.parseXMLResponse(responseXML));
-        }
+        responseXML = awsQueue.getResponseFromAWS();
+        messageList = awsQueue.parseXMLResponse(responseXML);
         
         for(XMLParserForSQSResponse.Message message : messageList) {
             messageIdList.add(message.MessageId);
@@ -48,6 +44,10 @@ public class InsertAccountsIntoBatch implements Database.Batchable <SObject> {
     }
     
     public void finish(Database.BatchableContext bc) {
-        Database.executeBatch(new InsertAccountsIntoBatch());
+        AmazonAws__c settings = [SELECT Recursively_Call__c FROM AmazonAws__c];
+        
+        if(settings.Recursively_Call__c == 'True') {
+            Database.executeBatch(new InsertAccountsIntoBatch());
+        }
     }
 }
