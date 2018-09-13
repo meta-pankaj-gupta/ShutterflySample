@@ -4,7 +4,7 @@ public class AWSResponseReceiver {
     }
     
     public String receiveMessage() {
-        //AmazonAws__c is a custom setting object that stores our keys, an Amazon Host, and a queue name
+        //List<AmazonAws__c> customeSettings = AmazonAws__c.getall().values();
         AmazonAws__c settings = [SELECT Access_Key__c, Secret_Key__c, Host__c, Queue__c, Max_Number_Of_Messages__c FROM AmazonAws__c];
         
         String accessKey = settings.Access_Key__c;
@@ -23,7 +23,6 @@ public class AWSResponseReceiver {
         params.put('SignatureVersion', '2');
         params.put('Version', '2009-02-01');
         
-        //The string to sign has to be sorted by keys
         List<String> sortedKeys = new List<String>();
         sortedKeys.addAll(params.keySet());
         sortedKeys.sort();
@@ -57,17 +56,16 @@ public class AWSResponseReceiver {
         HttpResponse res = http.send(req);
         
         try {
-            //System.debug('Signed string: ' + toSign);
             System.debug('Url: ' + url);
             System.debug('Status: ' + res.getStatus());
             System.debug('Code  : ' + res.getStatusCode());
             System.debug('Body  : ' + res.getBody());
+            return res.getBody();
         }
         catch (System.CalloutException e) {
             System.debug('ERROR: ' + e);
         }
-        
-        return res.getBody();
+        return null;
     }
     
     private String encode(String message){

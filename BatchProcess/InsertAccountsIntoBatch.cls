@@ -4,20 +4,23 @@ public class InsertAccountsIntoBatch implements Database.Batchable <SObject>, Da
     }
     
     public void execute(Database.BatchableContext bc, List<Account> records) {
-        String responseXML;
-        List<Account> accountToBeInsert;
+        List<String> responseXML = new List<String>();
+        List<Account> accountToBeInsert = new List<Account>();
         List<XMLParserForSQSResponse.Message> messageList;
         List<String> messageIdList = new List<String>();
-        Set<String> successReceiptHandle = new Set<String>();
+        Set<String> failReceiptHandle = new Set<String>();
         Set<String> failedReceiptHandle = new Set<String>();
         Map<String, String> receiptHandleWithBody = new Map<String, String>();
         
-        
+        AmazonAws__c settings = [SELECT No_Of_Receive_Message_Call__c FROM AmazonAws__c];
         RetriveMessageFromAWSQueue awsQueue = new RetriveMessageFromAWSQueue();
         Utility utils = new Utility();
         SQSDeleteBatch sqsDeletebatch = new SQSDeleteBatch();
         
-        responseXML = awsQueue.getResponseFromAWS();
+        for(Integer i=1; i<=settings.No_Of_Receive_Message_Call__c; i++) {
+            responseXML.add(awsQueue.getResponseFromAWS());
+        }
+        
         messageList = awsQueue.parseXMLResponse(responseXML);
         
         for(XMLParserForSQSResponse.Message message : messageList) {
@@ -25,22 +28,24 @@ public class InsertAccountsIntoBatch implements Database.Batchable <SObject>, Da
             receiptHandleWithBody.put(message.ReceiptHandle, message.Body);
         }
         
-        for(String body : receiptHandleWithBody.values()) {
-            accountToBeInsert.add(awsQueue.retriveDetailsFromJson(body));
-        }
+        Map<String, String> mapOfFailureJsonParsingMessage = new Map<String, String>();
+       	accountToBeInsert.addAll(awsQueue.retriveDetailsFromJson(receiptHandleWithBody, mapOfFailureJsonParsingMessage));
         
         List<Database.UpsertResult> result = Database.upsert(accountToBeInsert);
+       
+        failReceiptHandle = utils.returnFailedReceiptHandle(result);
         
-        successReceiptHandle = utils.returnSuccessReceiptHandle(result);
-        
-        Map<String, List<String>> batchGroupforDelete = utils.prepareSetForDeleteBatch(successReceiptHandle);
+		//Todo To write logic to deduct fail ReceiptHandle from receiptHandleWithBody  
+		
+        Map<String, List<String>> batchGroupforDelete = utils.prepareSetForDeleteBatch(receiptHandleWithBody);
+        system.debug('batchGroupforDelete size :'+ batchGroupforDelete.size());
         for(List<String> ids : batchGroupforDelete.values()) {
-            sqsDeletebatch.deleteMessage(ids);
+            system.debug('ids size :'+ ids.size());
+            sqsDeletebatch.deleteMessageBatch(ids); //needs to be improve
         }
         
-        failedReceiptHandle = receiptHandleWithBody.keySet();
-        failedReceiptHandle.removeAll(successReceiptHandle);
-        utils.addBatchIntoDeadQueue(failedReceiptHandle);
+        //Todo following method
+        //utils.addBatchIntoDeadQueue(failedReceiptHandle);
     }
     
     public void finish(Database.BatchableContext bc) {
