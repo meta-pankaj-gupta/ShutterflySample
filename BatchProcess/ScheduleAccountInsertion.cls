@@ -6,7 +6,6 @@ public class ScheduleAccountInsertion implements schedulable {
         for(Integer i = 1; i <= settings.No_Of_Batch_Process__c; i++) {
             InsertAccountsIntoBatch insertAccount = new InsertAccountsIntoBatch();
 			database.executebatch(insertAccount);
-            system.debug('Batch : '+i);
         }
     }
 }
